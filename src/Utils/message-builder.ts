@@ -1,49 +1,47 @@
 import type {
    AnyMessageContent,
-   CarouselCard,
    CarouselMessageOptions,
    InteractiveMessageButton,
    InteractiveMessageOptions,
    ListMessageOptions,
+   ListMessageSection,
    NativeFlowButton
 } from "../Types/Message";
+import { PollBuilder } from "./poll-builder";
+import { CarouselBuilder } from "./carousel-builder";
 
-export class MessageBuilder {
-   private content: Record<string, any> = {};
+export class InteractiveMessageBuilder {
+   private options: InteractiveMessageOptions;
 
-   // ============================================================
-   // TEXT
-   // ============================================================
-
-   static text(text: string) {
-      return new MessageBuilder().text(text);
+   constructor(title: string) {
+      this.options = {
+         title,
+         buttons: []
+      };
    }
 
-   text(text: string) {
-      this.content.text = text;
+   body(text: string) {
+      this.options.title = text;
       return this;
    }
 
-   // ============================================================
-   // FOOTER
-   // ============================================================
-
-   footer(footer: string) {
-      this.content.footer = footer;
+   header(text: string) {
+      this.options.header = text;
       return this;
    }
 
-   // ============================================================
-   // NATIVE FLOW
-   // ============================================================
+   footer(text: string) {
+      this.options.footer = text;
+      return this;
+   }
 
-   button(button: NativeFlowButton) {
-      if (!this.content.buttons) {
-         this.content.buttons = [];
-      }
+   button(button: InteractiveMessageButton) {
+      this.options.buttons.push(button);
+      return this;
+   }
 
-      this.content.buttons.push(button);
-
+   buttons(buttons: InteractiveMessageButton[]) {
+      this.options.buttons.push(...buttons);
       return this;
    }
 
@@ -84,73 +82,121 @@ export class MessageBuilder {
       });
    }
 
-   // ============================================================
-   // LIST
-   // ============================================================
+   messageParamsJson(params: string | Record<string, unknown>) {
+      this.options.messageParamsJson =
+         typeof params === "string" ? params : JSON.stringify(params);
 
-   list(options: ListMessageOptions) {
-      this.content.list = options;
       return this;
    }
 
-   // ============================================================
-   // INTERACTIVE MESSAGE
-   // ============================================================
+   messageVersion(version: number) {
+      this.options.messageVersion = version;
+      return this;
+   }
 
-   interactive(title: string) {
-      this.content.interactiveMessage = {
+   build(): AnyMessageContent {
+      return {
+         interactiveMessage: this.options
+      };
+   }
+}
+
+class ListMessageBuilder {
+   private options: ListMessageOptions;
+   private currentSection?: ListMessageSection;
+
+   constructor(title: string) {
+      this.options = {
          title,
-         buttons: []
-      } satisfies InteractiveMessageOptions;
+         text: "",
+         buttonText: "",
+         sections: []
+      };
+   }
+
+   text(text: string) {
+      this.options.text = text;
+      return this;
+   }
+
+   footer(footer: string) {
+      this.options.footer = footer;
+      return this;
+   }
+
+   button(text: string) {
+      this.options.buttonText = text;
+      return this;
+   }
+
+   section(title: string) {
+      const section: ListMessageSection = {
+         title,
+         rows: []
+      };
+
+      this.options.sections.push(section);
+      this.currentSection = section;
 
       return this;
    }
 
-   header(text: string) {
-      if (!this.content.interactiveMessage) {
-         throw new Error(
-            "MessageBuilder.header() requires interactive() first"
-         );
+   row(id: string, title: string, description?: string) {
+      if (!this.currentSection) {
+         throw new Error("ListMessageBuilder.row() requires section() first");
       }
 
-      this.content.interactiveMessage.header = text;
+      this.currentSection.rows.push({
+         id,
+         title,
+         description
+      });
 
       return this;
    }
 
-   interactiveFooter(text: string) {
-      if (!this.content.interactiveMessage) {
-         throw new Error(
-            "MessageBuilder.interactiveFooter() requires interactive() first"
-         );
+   build(): AnyMessageContent {
+      return {
+         list: this.options
+      };
+   }
+}
+
+export class MessageBuilder {
+   private content: Record<string, any> = {};
+
+   static text(text: string) {
+      return new MessageBuilder().text(text);
+   }
+
+   text(text: string) {
+      this.content.text = text;
+      return this;
+   }
+
+   footer(footer: string) {
+      this.content.footer = footer;
+      return this;
+   }
+
+   button(button: NativeFlowButton) {
+      if (!this.content.buttons) {
+         this.content.buttons = [];
       }
 
-      this.content.interactiveMessage.footer = text;
-
+      this.content.buttons.push(button);
       return this;
    }
 
-   interactiveButton(button: InteractiveMessageButton) {
-      if (!this.content.interactiveMessage) {
-         throw new Error(
-            "MessageBuilder.interactiveButton() requires interactive() first"
-         );
-      }
-
-      this.content.interactiveMessage.buttons.push(button);
-
-      return this;
-   }
-
-   interactiveQuickReply(id: string, text: string) {
-      return this.interactiveButton({
+   quickReply(id: string, text: string) {
+      return this.button({
          id,
          text
       });
    }
 
-   interactiveCtaUrl(text: string, url: string) {
-      return this.interactiveButton({
+   ctaUrl(text: string, url: string) {
+      return this.button({
          name: "cta_url",
          buttonParamsJson: JSON.stringify({
             display_text: text,
@@ -159,8 +205,8 @@ export class MessageBuilder {
       });
    }
 
-   interactiveCtaCopy(text: string, code: string) {
-      return this.interactiveButton({
+   ctaCopy(text: string, code: string) {
+      return this.button({
          name: "cta_copy",
          buttonParamsJson: JSON.stringify({
             display_text: text,
@@ -169,8 +215,8 @@ export class MessageBuilder {
       });
    }
 
-   interactiveCtaCall(text: string, phoneNumber: string) {
-      return this.interactiveButton({
+   ctaCall(text: string, phoneNumber: string) {
+      return this.button({
          name: "cta_call",
          buttonParamsJson: JSON.stringify({
             display_text: text,
@@ -179,18 +225,32 @@ export class MessageBuilder {
       });
    }
 
-   // ============================================================
-   // CAROUSEL
-   // ============================================================
+   static list(title: string) {
+      return new ListMessageBuilder(title);
+   }
+
+   static interactive(title: string) {
+      return new InteractiveMessageBuilder(title);
+   }
+
+   static carousel(options: CarouselMessageOptions): MessageBuilder;
+   static carousel(): CarouselBuilder;
+   static carousel(options?: CarouselMessageOptions) {
+      if (options) {
+         return new MessageBuilder().carousel(options);
+      }
+
+      return new CarouselBuilder();
+   }
 
    carousel(options: CarouselMessageOptions) {
       this.content.carousel = options;
       return this;
    }
 
-   // ============================================================
-   // BUILD
-   // ============================================================
+   static poll(name: string) {
+      return new PollBuilder(name);
+   }
 
    build(): AnyMessageContent {
       return this.content as AnyMessageContent;
