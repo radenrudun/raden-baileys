@@ -256,6 +256,10 @@ export type InteractiveMessageButton =
       name: 'cta_copy'
       buttonParamsJson: string
     }
+  | {
+      name: 'cta_call'
+      buttonParamsJson: string
+    }
 
 export type InteractiveMessageOptions = {
   title: string
