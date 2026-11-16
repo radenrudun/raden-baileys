@@ -229,6 +229,49 @@ export type WASendableProduct = Omit<proto.Message.ProductMessage.IProductSnapsh
 	productImage: WAMediaUpload
 }
 
+export type NativeFlowButton =
+        | {
+                id: string
+                text: string
+          }
+        | {
+                name: string
+                buttonParamsJson: string
+          }
+          
+export type InteractiveMessageButton =
+  | {
+      id: string
+      text: string
+    }
+  | {
+      name: 'quick_reply'
+      buttonParamsJson: string
+    }
+  | {
+      name: 'cta_url'
+      buttonParamsJson: string
+    }
+  | {
+      name: 'cta_copy'
+      buttonParamsJson: string
+    }
+
+export type InteractiveMessageOptions = {
+  title: string
+  footer?: string
+  header?: string
+  buttons: InteractiveMessageButton[]
+  messageParamsJson?: string
+  messageVersion?: number
+}
+
+export type ButtonsMessageOptions = {
+        buttons: NativeFlowButton[]
+        messageParamsJson?: string
+        messageVersion?: number
+}
+
 export type AnyRegularMessageContent = (
 	| ({
 			text: string
@@ -283,7 +326,18 @@ export type AnyRegularMessageContent = (
 	  }
 	| SharePhoneNumber
 	| RequestPhoneNumber
-) &
+	| ({
+    interactiveMessage: InteractiveMessageOptions
+  } & Contextable)
+  ) &
+    ViewOnce
+  | ({
+      text?: string
+      footer?: string
+      buttons: NativeFlowButton[]
+      messageParamsJson?: string
+      messageVersion?: number
+  } & Contextable) &
 	ViewOnce
 
 export type AnyMessageContent =
