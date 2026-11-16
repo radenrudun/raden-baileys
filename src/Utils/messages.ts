@@ -464,7 +464,88 @@ export const generateWAMessageContent = async (
 ) => {
    let m: WAMessageContent = {};
 
-   if (hasNonNullishProperty(message, "buttons")) {
+   if (hasNonNullishProperty(message, "carousel")) {
+      const carousel = message.carousel;
+
+      const cards = await Promise.all(
+         carousel.cards.map(async card => {
+            const header: proto.Message.InteractiveMessage.IHeader = {
+               title: card.title,
+               hasMediaAttachment: false
+            };
+
+            if (card.image) {
+               const { imageMessage } = await prepareWAMessageMedia(
+                  { image: card.image },
+                  options
+               );
+
+               header.imageMessage = imageMessage;
+               header.hasMediaAttachment = true;
+            } else if (card.video) {
+               const { videoMessage } = await prepareWAMessageMedia(
+                  { video: card.video },
+                  options
+               );
+
+               header.videoMessage = videoMessage;
+               header.hasMediaAttachment = true;
+            }
+
+            const nativeFlowButtons = (card.buttons || []).map(button => {
+               if ("id" in button && "text" in button) {
+                  return {
+                     name: "quick_reply",
+                     buttonParamsJson: JSON.stringify({
+                        display_text: button.text,
+                        id: button.id
+                     })
+                  };
+               }
+
+               return {
+                  name: button.name,
+                  buttonParamsJson: button.buttonParamsJson
+               };
+            });
+
+            return {
+               header,
+
+               body: card.body
+                  ? {
+                       text: card.body
+                    }
+                  : undefined,
+
+               footer: card.footer
+                  ? {
+                       text: card.footer
+                    }
+                  : undefined,
+
+               nativeFlowMessage: {
+                  buttons: nativeFlowButtons,
+                  messageParamsJson: "{}",
+                  messageVersion: 1
+               }
+            };
+         })
+      );
+
+      m.interactiveMessage = {
+         carouselMessage: {
+            cards,
+            messageVersion: carousel.messageVersion ?? 1,
+            carouselCardType:
+               carousel.carouselCardType === "ALBUM_IMAGE"
+                  ? proto.Message.InteractiveMessage.CarouselMessage
+                       .CarouselCardType.ALBUM_IMAGE
+                  : proto.Message.InteractiveMessage.CarouselMessage
+                       .CarouselCardType.HSCROLL_CARDS
+         }
+      };
+   } else if (hasNonNullishProperty(message, "buttons")) {
       const nativeFlowButtons = message.buttons.map(button => {
          if ("id" in button && "text" in button) {
             return {
@@ -495,6 +576,32 @@ export const generateWAMessageContent = async (
             buttons: nativeFlowButtons,
             messageParamsJson: message.messageParamsJson ?? "{}",
             messageVersion: message.messageVersion ?? 1
+         }
+      };
+   } else if (hasNonNullishProperty(message, "list")) {
+      const list = message.list;
+
+      m.interactiveMessage = {
+         body: {
+            text: list.text
+         },
+         footer: list.footer
+            ? {
+                 text: list.footer
+              }
+            : undefined,
+         nativeFlowMessage: {
+            buttons: [
+               {
+                  name: "single_select",
+                  buttonParamsJson: JSON.stringify({
+                     title: list.buttonText,
+                     sections: list.sections
+                  })
+               }
+            ],
+            messageParamsJson: "{}",
+            messageVersion: 1
          }
       };
    } else if (hasNonNullishProperty(message, "interactiveMessage")) {

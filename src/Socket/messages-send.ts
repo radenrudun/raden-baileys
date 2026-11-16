@@ -89,11 +89,21 @@ const getButtonType = (message: proto.IMessage) => {
       return msg.listMessage ? "list" : "buttons";
    }
 
-   const vm = msg?.viewOnceMessage?.message || msg?.viewOnceMessageV2?.message;
+   const vm =
+      msg?.viewOnceMessage?.message ||
+      msg?.viewOnceMessageV2?.message;
 
    const im = vm?.interactiveMessage || msg?.interactiveMessage;
 
-   if (!im?.nativeFlowMessage) {
+   if (!im) {
+      return null;
+   }
+
+   if (im.carouselMessage?.cards?.length) {
+      return "interactive";
+   }
+
+   if (!im.nativeFlowMessage) {
       return null;
    }
 
