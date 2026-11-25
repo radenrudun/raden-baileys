@@ -1,11 +1,24 @@
-import { generateMessageID, generateWAMessageContent } from "../Utils/index.js";
+import crypto from "crypto";
 
-import type { AnyMessageContent } from "../Types/Message.js";
+import {
+   generateMessageID,
+   generateWAMessage,
+   generateWAMessageContent,
+   generateWAMessageFromContent
+} from "../Utils/index.js";
+
+import { jidNormalizedUser } from "../WABinary/index.js";
+
+import type {
+   AnyMessageContent,
+   AlbumMessageContent
+} from "../Types/Message.js";
 
 export class Dugong {
    constructor(
       private readonly waUploadToServer: any,
-      private readonly relayMessage: any
+      private readonly relayMessage: any,
+      private readonly userJid: string
    ) {}
 
    async handleGroupStory(
@@ -64,5 +77,72 @@ export class Dugong {
          },
          message: innerMsg
       };
+   }
+
+   async handleAlbum(content: AlbumMessageContent, jid: string, quoted?: any) {
+      const items = content.albumMessage;
+
+      if (!Array.isArray(items) || items.length === 0) {
+         throw new Error("Album: minimal 1 media diperlukan");
+      }
+
+      const expectedImageCount = items.filter(item => "image" in item).length;
+
+      const expectedVideoCount = items.filter(item => "video" in item).length;
+
+      const album = await generateWAMessageFromContent(
+         jid,
+         {
+            messageContextInfo: {
+               messageSecret: crypto.randomBytes(32)
+            },
+
+            albumMessage: {
+               expectedImageCount,
+               expectedVideoCount
+            }
+         },
+         {
+            userJid: jidNormalizedUser(this.userJid),
+            quoted
+         }
+      );
+
+      await this.relayMessage(jid, album.message, {
+         messageId: album.key.id
+      });
+
+      for (let item of items) {
+         if (
+            content.contextInfo &&
+            Object.keys(content.contextInfo).length > 0 &&
+            !item.contextInfo
+         ) {
+            item = {
+               ...item,
+               contextInfo: content.contextInfo
+            };
+         }
+
+         const media = await generateWAMessage(jid, item, {
+            upload: this.waUploadToServer,
+            userJid: jidNormalizedUser(this.userJid)
+         });
+
+         media.message!.messageContextInfo = {
+            messageSecret: crypto.randomBytes(32),
+
+            messageAssociation: {
+               associationType: 1,
+               parentMessageKey: album.key
+            }
+         };
+
+         await this.relayMessage(jid, media.message!, {
+            messageId: media.key.id!
+         });
+      }
+
+      return album;
    }
 }

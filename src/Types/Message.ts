@@ -161,10 +161,31 @@ export type EventMessageOptions = {
 };
 
 export type AlbumMessageOptions = {
-   /** Number of images expected in the album */
    expectedImageCount?: number;
-   /** Number of videos expected in the album */
    expectedVideoCount?: number;
+};
+
+export type AlbumMessageItem =
+   | ({
+        image: WAMediaUpload;
+        caption?: string;
+        jpegThumbnail?: string;
+     } & Mentionable &
+        Contextable &
+        WithDimensions)
+   | ({
+        video: WAMediaUpload;
+        caption?: string;
+        gifPlayback?: boolean;
+        jpegThumbnail?: string;
+        ptv?: boolean;
+     } & Mentionable &
+        Contextable &
+        WithDimensions);
+
+export type AlbumMessageContent = {
+   albumMessage: AlbumMessageItem[];
+   contextInfo?: proto.IContextInfo;
 };
 
 type SharePhoneNumber = {
@@ -404,6 +425,7 @@ export type AnyRegularMessageContent =
 
 export type AnyMessageContent =
    | AnyRegularMessageContent
+   | AlbumMessageContent
    | {
         forward: WAMessage;
         force?: boolean;

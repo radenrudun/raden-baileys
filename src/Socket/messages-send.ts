@@ -1678,7 +1678,11 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 
    const waUploadToServer = getWAUploadToServer(config, refreshMediaConn);
 
-   const dugong = new Dugong(waUploadToServer, relayMessage);
+   const dugong = new Dugong(
+      waUploadToServer,
+      relayMessage,
+      authState.creds.me!.id
+   );
 
    const waitForMsgMediaUpdate = bindWaitForEvent(ev, "messages.media-update");
 
@@ -1804,6 +1808,13 @@ export const makeMessagesSocket = (config: SocketConfig) => {
             content.groupStatusMessage
          ) {
             return await dugong.handleGroupStory(content, jid);
+         }
+         if (
+            typeof content === "object" &&
+            "albumMessage" in content &&
+            Array.isArray(content.albumMessage)
+         ) {
+            return await dugong.handleAlbum(content, jid, options.quoted);
          }
 
          if (

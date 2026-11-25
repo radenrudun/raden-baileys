@@ -875,6 +875,23 @@ export const generateWAMessageContent = async (
          expectedImageCount: message.album.expectedImageCount,
          expectedVideoCount: message.album.expectedVideoCount
       };
+   } else if (hasNonNullishProperty(message, "albumMessage")) {
+      m.albumMessage = {
+         expectedImageCount: message.albumMessage.filter(
+            item => "image" in item
+         ).length,
+
+         expectedVideoCount: message.albumMessage.filter(
+            item => "video" in item
+         ).length
+      };
+
+      if (message.contextInfo) {
+         m.albumMessage = {
+            ...m.albumMessage,
+            contextInfo: message.contextInfo
+         };
+      }
    } else if (hasNonNullishProperty(message, "sharePhoneNumber")) {
       m.protocolMessage = {
          type: proto.Message.ProtocolMessage.Type.SHARE_PHONE_NUMBER
