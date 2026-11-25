@@ -210,6 +210,9 @@ export type AnyMediaMessageContent = (
         fileName?: string;
         caption?: string;
      } & Contextable)
+   | {
+        groupStatusMessage: AnyMessageContent;
+     }
 ) & { mimetype?: string } & Editable & {
       /** key of the parent albumMessage to associate this media with */
       albumParentKey?: WAMessageKey;
@@ -286,7 +289,6 @@ export type InteractiveMessageButton =
         buttonParamsJson: string;
      };
 
-
 export type InteractiveMessageOptions = {
    title: string;
    footer?: string;
@@ -308,10 +310,10 @@ export type CarouselCard = {
 };
 
 export type CarouselMessageOptions = {
-   cards: CarouselCard[]
-   messageVersion?: number
-   carouselCardType?: 'HSCROLL_CARDS' | 'ALBUM_IMAGE'
-}
+   cards: CarouselCard[];
+   messageVersion?: number;
+   carouselCardType?: "HSCROLL_CARDS" | "ALBUM_IMAGE";
+};
 
 export type ButtonsMessageOptions = {
    buttons: NativeFlowButton[];

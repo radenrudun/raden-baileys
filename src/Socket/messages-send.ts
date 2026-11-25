@@ -2,6 +2,7 @@ import NodeCache from "@cacheable/node-cache";
 import { Boom } from "@hapi/boom";
 import { proto } from "../../WAProto/index.js";
 import { DEFAULT_CACHE_TTLS, WA_DEFAULT_EPHEMERAL } from "../Defaults";
+import { Dugong } from "./dugong.js";
 import type {
    AnyMessageContent,
    MediaConnInfo,
@@ -24,10 +25,13 @@ import {
    encodeWAMessage,
    encryptMediaRetryRequest,
    extractDeviceJids,
+   generateMessageID,
    generateMessageIDV2,
    generateParticipantHashV2,
    generateWAMessage,
+   generateWAMessageContent,
    getStatusCodeForMediaRetry,
+   prepareWAMessageMedia,
    getUrlFromDirectPath,
    getWAUploadToServer,
    MessageRetryManager,
@@ -89,9 +93,7 @@ const getButtonType = (message: proto.IMessage) => {
       return msg.listMessage ? "list" : "buttons";
    }
 
-   const vm =
-      msg?.viewOnceMessage?.message ||
-      msg?.viewOnceMessageV2?.message;
+   const vm = msg?.viewOnceMessage?.message || msg?.viewOnceMessageV2?.message;
 
    const im = vm?.interactiveMessage || msg?.interactiveMessage;
 
@@ -1676,6 +1678,8 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 
    const waUploadToServer = getWAUploadToServer(config, refreshMediaConn);
 
+   const dugong = new Dugong(waUploadToServer, relayMessage);
+
    const waitForMsgMediaUpdate = bindWaitForEvent(ev, "messages.media-update");
 
    registerSocketEndHandler(() => {
@@ -1793,6 +1797,15 @@ export const makeMessagesSocket = (config: SocketConfig) => {
          options: MiscMessageGenerationOptions = {}
       ) => {
          const userJid = authState.creds.me!.id;
+
+         if (
+            typeof content === "object" &&
+            "groupStatusMessage" in content &&
+            content.groupStatusMessage
+         ) {
+            return await dugong.handleGroupStory(content, jid);
+         }
+
          if (
             typeof content === "object" &&
             "disappearingMessagesInChat" in content &&
@@ -1800,12 +1813,14 @@ export const makeMessagesSocket = (config: SocketConfig) => {
             isJidGroup(jid)
          ) {
             const { disappearingMessagesInChat } = content;
+
             const value =
                typeof disappearingMessagesInChat === "boolean"
                   ? disappearingMessagesInChat
                      ? WA_DEFAULT_EPHEMERAL
                      : 0
                   : disappearingMessagesInChat;
+
             await groupToggleEphemeral(jid, value);
          } else {
             const fullMsg = await generateWAMessage(jid, content, {
@@ -1870,7 +1885,7 @@ export const makeMessagesSocket = (config: SocketConfig) => {
                   }
                } as BinaryNode);
             }
-            
+
             await relayMessage(jid, fullMsg.message!, {
                messageId: fullMsg.key.id!,
                useCachedGroupMetadata: options.useCachedGroupMetadata,
